@@ -8,7 +8,7 @@ using DataArrays, DataFrames, Optim, JLD, PyPlot, Colors
 export s2p, complex2dB, complex2Phase, dB2mag, s21Fit, savitsky_golay, s21FitAuto,
         bestFit, searchdir, s21FitPowerSweepJLD, s21FitTimeSweepJLD, plotAllTracesJLD,
         plotAllResultsPowerSweepJLD, plotAllResultsTimeSweepJLD, s21FitFunc, s21FitJLD,
-        mergeJLDFileResults
+        mergeJLDFileResults, mag2dB
 
 """
     searchdir(path,key)
@@ -177,6 +177,7 @@ db = complex2dB([1 + 2im;1 - 2im])
 function complex2dB(x)
     return 20*log10(abs(x))
 end
+
 """
     complex2Phase(x)
 
@@ -192,12 +193,27 @@ function complex2Phase(x)
     return atan2(imag(x), real(x))
 end
 
-# Converts from dB to magnitude
+"""
+    dB2mag(db)
+
+Converts from dB to magnitude.\n
+Arg(s):\n
+db - dB input\n
+Output(s):\n
+mag - magnitude output
+"""
 function dB2mag(db)
     return 10^(db/20)
 end
+"""
+    mag2dB(mag)
 
-# Converts from magnitude to dB
+Converts from magnitude to dB.\n
+Arg(s):\n
+mag - mag input\n
+Output(s):\n
+db - dB output
+"""
 function mag2dB(mag)
     return 20*log10(mag)
 end
@@ -476,8 +492,34 @@ function s21FitAuto(freq, s21; power = NA, ifBandwidth = NA, codes = ["0 0", "0 
     return fitTrails, resultIdx, traceIdx
 end
 
-# Fits resonator data to a prescribed model using least squares + Nelder Mead
-function s21Fit(freq, s21; pGuess = [0.5], smoothingFactor = 0, iter = 2000, method = NelderMead())
+"""
+    s21Fit(freq, s21; pGuess = [0.5], smoothingFactor = 0, iter = 2000, funcTol = 1e-10 )
+
+Fits resonator data to a prescribed model using least squares + Nelder Mead.\n
+Arg(s):\n
+freq - real array of frequencies\n
+s21 - complex array of the S21 parameters\n
+(pGuess) - array of length 6 for the initial fit parameter guess. The components
+for are as follows:\n
+- Qi/1e6\n
+- dBOffsetFromZero\n
+- strayInductance(nH)\n
+- dipDepth (magnitude)\n
+- f0\n
+- phaseOnResonance\n
+(smoothingFactor) - smooths the s21 input using Savitzky–Golay filter with a window size equal to the smoothing factor
+(iter) - maximum number of iterations for convergence before optimization gives upgrade_scalar
+(funcTol) - tolerance for the change in the fit function value between successive iterations
+Output(s):\n
+s21fit - the fit s21 function given from the same freqeuency input and optimized parameters\n
+s21smoothed - smoothed s21 function (if not, then original)\n
+fitResults - Optim.jl fitting results where calling fitResults.minimum will give optimized paramters\n
+fitScore - value of fitting function at optimized parameters\n
+Example:\n
+s21fit, s21smoothed, fitResults, fitScore = s21Fit(freq, s21)
+"""
+#
+function s21Fit(freq, s21; pGuess = [0.5], smoothingFactor = 0, iter = 2000, funcTol = 1e-10 )
     """
     This function will fit a resonator's S21 transmission response to a fitting
     model described in Megrant et. al. ArXiv 1201.3384 (2012). Minimizes
@@ -506,7 +548,6 @@ function s21Fit(freq, s21; pGuess = [0.5], smoothingFactor = 0, iter = 2000, met
     while maximum(size(pGuess, 1)) < pSize
         push!(pGuess, 0)
     end
-
     # Separate into magnitude and phase
     s21dB = ResonatorFit.complex2dB(s21)
     s21Ph = ResonatorFit.complex2Phase(s21)
@@ -524,50 +565,23 @@ function s21Fit(freq, s21; pGuess = [0.5], smoothingFactor = 0, iter = 2000, met
     pGuess[2] = s1dBMax + pGuess[2]
     # Difference in magnitude from top of trace to the bottom of the dip
     pGuess[4] = dB2mag(pGuess[2] - s1dBMin) + pGuess[4]
-
-    #
-    # # Define the fitting function in a parameterized functional form
-    # # The theory for this model can be found in section 2.3.3 and 2.4 of Ben Mazin's thesis
-    # # Zero offset at flat region of spectrum
-    # totaloffsetdB(p) =  s1dBMax + p[2]
-    # # Convert from dB
-    # totaloffset(p) = dB2mag(totaloffsetdB(p))
-    # # Adjust the minimum value from the offset
-    # s21AdjMin(p) = dB2mag(s21dB[f0Idx] - totaloffsetdB(p)) + p[4]
-    # # Add some parasitic series indutance to the transmission line
-    # Z(freq, p) = 50 + 2im*pi*freq*p[3]/1e9
-    # # Define a scale factor based on this impedance scaling change
-    # scalefactor(freq, p) = 50./Z(freq, p)
-    # # Calcuate the coupling capacitance scaled by the new impedance
-    # Qc(freq, p) = scalefactor(freq, p)*s21AdjMin(p)*p[1]*1e6/(1 - s21AdjMin(p))
-    # # Calculate the loaded Q
-    # Q0(freq, p) = (p[1]*1e6.*Qc(freq, p))./(p[1]*1e6+Qc(freq, p))
-    # # Some variable I arbitrarily defined
-    #  ? k(freq, p) = 2im*Q0(freq, p).*(freq - f0(p))/f0(p) : k(freq, p) = 2im*Q0(freq, p).*(freq - f0)/f0
-    # # The fitting function in all it's glory
-    # s21fit(freq, p) = (s21AdjMin(p) + k(freq, p)).*exp(1im*minPhase)./(1 + k(freq, p))*totaloffset(p)
     # The residual of the dB magnitude for the spectrum
     residualdB(freq, p) = complex2dB(s21) - complex2dB(s21FitFunc(freq,p))
     # The residual of the dB phase for the spectrum
     residualPh(freq, p) = complex2Phase(s21) - complex2Phase(s21FitFunc(freq,p))
     # Errors created from smoothing the orginal data will count against fit
+    # Magnitude
     residualSmoothdB = complex2dB(s21org) - complex2dB(s21)
+    # Phase
     residualSmoothPh = complex2Phase(s21org) - complex2Phase(s21)
     # The magnitude of the combined residuals
     residualMag(freq, p) = sqrt(residualdB(freq, p).^2 + residualPh(freq, p).^2
-        + residualSmoothdB.^2 + residualSmoothPh.^2) # residualdB(freq, p) #
+        + residualSmoothdB.^2 + residualSmoothPh.^2)
     # Least squares
     rsquared(p) = sum(abs(residualMag(freq, p)).^2)
     # Optimization
-    funcTol = 1e-10 # Change in the fit function value between successive iterations
-    fitResults = optimize(rsquared, pGuess, method = method, ftol = funcTol, iterations = iter)
+    fitResults = optimize(rsquared, pGuess, ftol = funcTol, iterations = iter)
     fitScore = rsquared(fitResults.minimum) # lower the better
-
-
-    # fitFreqOffset ? nothing : push!(fitResults.minimum, 0)
-    # freq = quickLinearInterp(freq, freqInterpFactor)
-
-
     # minimumOutputKey = [Qi/1e6, dBOffsetFromZero, strayInductance(nH), dipDepthMag, f0, phaseOnResonance]
     return s21FitFunc(freq, fitResults.minimum), s21, fitResults, fitScore
 end
@@ -575,7 +589,11 @@ end
 function s21FitFunc(freq, p)
     # Define the fitting function in a parameterized functional form
     # The theory for this model can be found in section 2.3.3 and 2.4 of Ben Mazin's thesis
+    # Difference in s21 between the dip and top of resonance curved,
+    # normalized such that top of resonance curve is at 0 dB in units of
+    # magnitude, i.e. NOT dB
     s21AdjMin(p) = p[4]
+    # Offset between top of resonance curve and 0 dB
     totaloffset(p) = dB2mag(p[2])
     # Add some parasitic series indutance to the transmission line
     Z(freq, p) = 50 + 2im*pi*freq*p[3]/1e9

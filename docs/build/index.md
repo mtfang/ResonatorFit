@@ -32,6 +32,52 @@ Example:
 
 f, s11, s21, s12, s22 = s2p("touchstone.s2p")
 
+<a id='ResonatorFit.s21Fit' href='#ResonatorFit.s21Fit'>#</a>
+**`ResonatorFit.s21Fit`** &mdash; *Function*.
+
+---
+
+
+```
+s21Fit(freq, s21; pGuess = [0.5], smoothingFactor = 0, iter = 2000, funcTol = 1e-10 )
+```
+
+Fits resonator data to a prescribed model using least squares + Nelder Mead.
+
+Arg(s):
+
+freq - real array of frequencies
+
+s21 - complex array of the S21 parameters
+
+(pGuess) - array of length 6 for the initial fit parameter guess. The components for are as follows:
+
+  * Qi/1e6
+
+  * dBOffsetFromZero
+
+  * strayInductance(nH)
+
+  * dipDepth (magnitude)
+
+  * f0
+
+  * phaseOnResonance
+
+(smoothingFactor) - smooths the s21 input using Savitzky–Golay filter with a window size equal to the smoothing factor (iter) - maximum number of iterations for convergence before optimization gives upgrade_scalar (funcTol) - tolerance for the change in the fit function value between successive iterations Output(s):
+
+s21fit - the fit s21 function given from the same freqeuency input and optimized parameters
+
+s21smoothed - smoothed s21 function (if not, then original)
+
+fitResults - Optim.jl fitting results where calling fitResults.minimum will give optimized paramters
+
+fitScore - value of fitting function at optimized parameters
+
+Example:
+
+s21fit, s21smoothed, fitResults, fitScore = s21Fit(freq, s21)
+
 
 <a id='Utilities-1'></a>
 
@@ -61,7 +107,7 @@ files - list of files in path matching key
 
 Example:
 
-f, s11, s21, s12, s22 = s2p("touchstone.s2p")
+juliaFiles = searchdir(path,".jl")
 
 <a id='Base.complex' href='#Base.complex'>#</a>
 **`Base.complex`** &mdash; *Function*.
@@ -165,7 +211,47 @@ ph - phase relative to the x axis
 
 Example:
 
-ph = complex2dB([1 + 2im;1 - 2im])
+ph = complex2Phase([1 + 2im;1 - 2im])
+
+<a id='ResonatorFit.dB2mag' href='#ResonatorFit.dB2mag'>#</a>
+**`ResonatorFit.dB2mag`** &mdash; *Function*.
+
+---
+
+
+```
+dB2mag(db)
+```
+
+Converts from dB to magnitude.
+
+Arg(s):
+
+db - dB input
+
+Output(s):
+
+mag - magnitude output
+
+<a id='ResonatorFit.mag2dB' href='#ResonatorFit.mag2dB'>#</a>
+**`ResonatorFit.mag2dB`** &mdash; *Function*.
+
+---
+
+
+```
+mag2dB(mag)
+```
+
+Converts from magnitude to dB.
+
+Arg(s):
+
+mag - mag input
+
+Output(s):
+
+db - dB output
 
 
 <a id='Index-1'></a>
@@ -175,5 +261,8 @@ ph = complex2dB([1 + 2im;1 - 2im])
 - [`Base.complex`](index.md#Base.complex)
 - [`ResonatorFit.complex2Phase`](index.md#ResonatorFit.complex2Phase)
 - [`ResonatorFit.complex2dB`](index.md#ResonatorFit.complex2dB)
+- [`ResonatorFit.dB2mag`](index.md#ResonatorFit.dB2mag)
+- [`ResonatorFit.mag2dB`](index.md#ResonatorFit.mag2dB)
+- [`ResonatorFit.s21Fit`](index.md#ResonatorFit.s21Fit)
 - [`ResonatorFit.s2p`](index.md#ResonatorFit.s2p)
 - [`ResonatorFit.searchdir`](index.md#ResonatorFit.searchdir)
