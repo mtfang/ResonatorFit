@@ -497,26 +497,26 @@ end
 
 Fits resonator data to a prescribed model using least squares + Nelder Mead.\n
 Arg(s):\n
-freq - real array of frequencies\n
-s21 - complex array of the S21 parameters\n
-(pGuess) - array of length 6 for the initial fit parameter guess. The components
+`freq` - real array of frequencies\n
+`s21` - complex array of the S21 parameters\n
+(`pGuess`) - array of length 6 for the initial fit parameter guess. The components
 for are as follows:\n
-- Qi/1e6\n
-- dBOffsetFromZero\n
-- strayInductance(nH)\n
-- dipDepth (magnitude)\n
-- f0\n
-- phaseOnResonance\n
-(smoothingFactor) - smooths the s21 input using Savitzky–Golay filter with a window size equal to the smoothing factor
-(iter) - maximum number of iterations for convergence before optimization gives upgrade_scalar
-(funcTol) - tolerance for the change in the fit function value between successive iterations
++ Qi/1e6\n
++ BOffsetFromZero\n
++ strayInductance(nH)\n
++ dipDepth (magnitude)\n
++ f0\n
++ phaseOnResonance\n
+(`smoothingFactor`) - smooths the s21 input using Savitzky–Golay filter with a window size equal to the smoothing factor\n
+(`iter`) - maximum number of iterations for convergence before optimization gives upgrade_scalar\n
+(`funcTol`) - tolerance for the change in the fit function value between successive iterations\n
 Output(s):\n
-s21fit - the fit s21 function given from the same freqeuency input and optimized parameters\n
-s21smoothed - smoothed s21 function (if not, then original)\n
-fitResults - Optim.jl fitting results where calling fitResults.minimum will give optimized paramters\n
-fitScore - value of fitting function at optimized parameters\n
+`s21fit` - the fit s21 function given from the same freqeuency input and optimized parameters\n
+`s21smoothed` - smoothed s21 function (if not, then original)\n
+`fitResults` - Optim.jl fitting results where calling fitResults.minimum will give optimized paramters\n
+`fitScore` - value of fitting function at optimized parameters\n
 Example:\n
-s21fit, s21smoothed, fitResults, fitScore = s21Fit(freq, s21)
+```s21fit, s21smoothed, fitResults, fitScore = s21Fit(freq, s21)```
 """
 #
 function s21Fit(freq, s21; pGuess = [0.5], smoothingFactor = 0, iter = 2000, funcTol = 1e-10 )

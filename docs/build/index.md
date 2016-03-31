@@ -46,15 +46,15 @@ Fits resonator data to a prescribed model using least squares + Nelder Mead.
 
 Arg(s):
 
-freq - real array of frequencies
+`freq` - real array of frequencies
 
-s21 - complex array of the S21 parameters
+`s21` - complex array of the S21 parameters
 
-(pGuess) - array of length 6 for the initial fit parameter guess. The components for are as follows:
+(`pGuess`) - array of length 6 for the initial fit parameter guess. The components for are as follows:
 
   * Qi/1e6
 
-  * dBOffsetFromZero
+  * BOffsetFromZero
 
   * strayInductance(nH)
 
@@ -64,19 +64,25 @@ s21 - complex array of the S21 parameters
 
   * phaseOnResonance
 
-(smoothingFactor) - smooths the s21 input using Savitzky–Golay filter with a window size equal to the smoothing factor (iter) - maximum number of iterations for convergence before optimization gives upgrade_scalar (funcTol) - tolerance for the change in the fit function value between successive iterations Output(s):
+(`smoothingFactor`) - smooths the s21 input using Savitzky–Golay filter with a window size equal to the smoothing factor
 
-s21fit - the fit s21 function given from the same freqeuency input and optimized parameters
+(`iter`) - maximum number of iterations for convergence before optimization gives upgrade_scalar
 
-s21smoothed - smoothed s21 function (if not, then original)
+(`funcTol`) - tolerance for the change in the fit function value between successive iterations
 
-fitResults - Optim.jl fitting results where calling fitResults.minimum will give optimized paramters
+Output(s):
 
-fitScore - value of fitting function at optimized parameters
+`s21fit` - the fit s21 function given from the same freqeuency input and optimized parameters
+
+`s21smoothed` - smoothed s21 function (if not, then original)
+
+`fitResults` - Optim.jl fitting results where calling fitResults.minimum will give optimized paramters
+
+`fitScore` - value of fitting function at optimized parameters
 
 Example:
 
-s21fit, s21smoothed, fitResults, fitScore = s21Fit(freq, s21)
+`s21fit, s21smoothed, fitResults, fitScore = s21Fit(freq, s21)`
 
 
 <a id='Utilities-1'></a>
