@@ -7,6 +7,8 @@
 ## Utilities
     {docs}
     searchdir
+    feedOutArrayFromDataFrame
+    complexMapSNP
     complex
     complex2dB
     complex2Phase
