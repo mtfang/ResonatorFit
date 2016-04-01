@@ -52,7 +52,7 @@ __Arg(s)__:
 
 `s21` - complex array of the S21 parameters
 
-(`pGuess`) - array of length 6 for the initial fit parameter guess. The components for are as follows:
+(`pGuess`) - array of length 6 for the initial fit parameter guess. The components for fitting are as follows:
 
   * Qi/1e6
 
@@ -87,6 +87,100 @@ __Example__:
 ```
 s21fit, s21smoothed, fitResults, fitScore = s21Fit(freq, s21)
 ```
+
+<a id='ResonatorFit.s21FitFunc' href='#ResonatorFit.s21FitFunc'>#</a>
+**`ResonatorFit.s21FitFunc`** &mdash; *Function*.
+
+---
+
+
+```
+s21FitFunc(freq, p)
+```
+
+This function defines the resonance behavior in a parameterized functional form. The theory for this model can be found in section 2.3.3 and 2.4 of Ben Mazin's thesis
+
+__Arg(s)__:
+
+`freq` - frequency value or array in Hz
+
+`p` -  array of length 6 for fit parameters. The components for fitting are as follows:
+
+  * Qi/1e6
+
+  * dBOffsetFromZero
+
+  * strayInductance(nH)
+
+  * dipDepth (magnitude)
+
+  * f0
+
+  * phaseOnResonance
+
+__Output(s)__:
+
+`s21val` - the complex value of s21 evaluated at `freq` given fit parameters
+
+<a id='ResonatorFit.getQFromFitParams' href='#ResonatorFit.getQFromFitParams'>#</a>
+**`ResonatorFit.getQFromFitParams`** &mdash; *Function*.
+
+---
+
+
+```
+getQFromFitParams(f0, p)
+```
+
+This function defines the resonance behavior in a parameterized functional form. The theory for this model can be found in section 2.3.3 and 2.4 of Ben Mazin's thesis.
+
+__Arg(s)__:
+
+`f0` - resonance frequency
+
+`p` -  array of length 6 for fit parameters. The components for fitting are as follows:
+
+  * Qi/1e6
+
+  * dBOffsetFromZero
+
+  * strayInductance(nH)
+
+  * dipDepth (magnitude)
+
+  * f0
+
+  * phaseOnResonance
+
+__Output(s)__:
+
+`Qc` - coupling Q
+
+`Q0` - loaded Q
+
+`Qi` - intrinsic Q, equal to `p[1]`
+
+<a id='ResonatorFit.fitGrade' href='#ResonatorFit.fitGrade'>#</a>
+**`ResonatorFit.fitGrade`** &mdash; *Function*.
+
+---
+
+
+```
+fitGrade(fitScore, pts)
+```
+
+Give an arbitrary grade based on the fit score.
+
+__Arg(s)__:
+
+`fitScore` - square residual val from minimization function 
+
+`pts` -  length of fitting function, used so that the grade is normalized to the length of the fit
+
+__Output(s)__:
+
+`grade` - welcome back to school
 
 
 <a id='Utilities-1'></a>
@@ -312,6 +406,54 @@ __Output(s)__:
 
 `db` - dB output
 
+<a id='ResonatorFit.savitsky_golay' href='#ResonatorFit.savitsky_golay'>#</a>
+**`ResonatorFit.savitsky_golay`** &mdash; *Function*.
+
+---
+
+
+```
+savitsky_golay(x::Array{Complex{Float64},1}, windowSize::Int64, polyOrder::Int64)
+```
+
+Savitsky Golay filters for complex arrays. __Arg(s)__:
+
+`x` - the complex values of the time history of the signal
+
+`windowSize` -  size of smoothing window. Must be an odd integer number.
+
+`polyOrder` - the order of the polynomial used in the filtering. Must be less then `window_size` - 1.
+
+__Output(s)__:
+
+`ys` - complex array of the smoothed signal 
+
+```
+savitsky_golay(x::Array{Float64, 1}, windowSize::Int64, polyOrder::Int64; deriv::Int64=0)
+```
+
+Polynomial smoothing with the Savitsky Golay filters. The Savitzky-Golay is a type of low-pass filter, particularly suited for smoothing noisy data. The main idea behind this approach is to make for each point a least-square fit with a polynomial of high order over a odd-sized window centered at the point.
+
+Orginal author BBN (https://github.com/BBN-Q/Qlab.jl). 
+
+Theory: http://www.ece.rutgers.edu/~orfanidi/intro2sp/orfanidis-i2sp.pdf
+
+Python Example: http://wiki.scipy.org/Cookbook/SavitzkyGolay
+
+__Arg(s)__:
+
+`x` - the values of the time history of the signal
+
+`windowSize` -  size of smoothing window. Must be an odd integer number.
+
+`polyOrder` - the order of the polynomial used in the filtering. Must be less then `window_size` - 1.
+
+`deriv`- the order of the derivative to compute (default = 0 means only smoothing)
+
+__Output(s)__:
+
+`ys` - Array of the smoothed signal (or it's n-th derivative)
+
 
 <a id='Index-1'></a>
 
@@ -323,7 +465,11 @@ __Output(s)__:
 - [`ResonatorFit.complexMapSNP`](index.md#ResonatorFit.complexMapSNP)
 - [`ResonatorFit.dB2mag`](index.md#ResonatorFit.dB2mag)
 - [`ResonatorFit.feedOutArrayFromDataFrame`](index.md#ResonatorFit.feedOutArrayFromDataFrame)
+- [`ResonatorFit.fitGrade`](index.md#ResonatorFit.fitGrade)
+- [`ResonatorFit.getQFromFitParams`](index.md#ResonatorFit.getQFromFitParams)
 - [`ResonatorFit.mag2dB`](index.md#ResonatorFit.mag2dB)
 - [`ResonatorFit.s21Fit`](index.md#ResonatorFit.s21Fit)
+- [`ResonatorFit.s21FitFunc`](index.md#ResonatorFit.s21FitFunc)
 - [`ResonatorFit.s2p`](index.md#ResonatorFit.s2p)
+- [`ResonatorFit.savitsky_golay`](index.md#ResonatorFit.savitsky_golay)
 - [`ResonatorFit.searchdir`](index.md#ResonatorFit.searchdir)

@@ -8,7 +8,8 @@ using DataArrays, DataFrames, Optim, JLD, PyPlot, Colors
 export s2p, complex2dB, complex2Phase, dB2mag, s21Fit, savitsky_golay, s21FitAuto,
         bestFit, searchdir, s21FitPowerSweepJLD, s21FitTimeSweepJLD, plotAllTracesJLD,
         plotAllResultsPowerSweepJLD, plotAllResultsTimeSweepJLD, s21FitFunc, s21FitJLD,
-        mergeJLDFileResults, mag2dB, feedOutArrayFromDataFrame, complexMapSNP
+        mergeJLDFileResults, mag2dB, feedOutArrayFromDataFrame, complexMapSNP,
+        getQFromFitParams, fitGrade
 
 """
     searchdir(path,key)
@@ -533,7 +534,7 @@ __Arg(s)__:\n
 `freq` - real array of frequencies\n
 `s21` - complex array of the S21 parameters\n
 (`pGuess`) - array of length 6 for the initial fit parameter guess. The components
-for are as follows:\n
+for fitting are as follows:\n
 + Qi/1e6\n
 + dBOffsetFromZero\n
 + strayInductance(nH)\n
@@ -617,9 +618,27 @@ function s21Fit(freq, s21; pGuess = [0.5], smoothingFactor = 0, iter = 2000, fun
     return s21FitFunc(freq, fitResults.minimum), s21, fitResults, fitScore
 end
 
+"""
+    s21FitFunc(freq, p)
+
+This function defines the resonance behavior in a parameterized functional form.
+The theory for this model can be found in section 2.3.3 and 2.4 of Ben Mazin's thesis\n
+__Arg(s)__:\n
+`freq` - frequency value or array in Hz\n
+`p` -  array of length 6 for fit parameters. The components for fitting are as follows:\n
++ Qi/1e6\n
++ dBOffsetFromZero\n
++ strayInductance(nH)\n
++ dipDepth (magnitude)\n
++ f0\n
++ phaseOnResonance\n
+__Output(s)__:\n
+`s21val` - the complex value of s21 evaluated at `freq` given fit parameters\n
+"""
 function s21FitFunc(freq, p)
     # Define the fitting function in a parameterized functional form
     # The theory for this model can be found in section 2.3.3 and 2.4 of Ben Mazin's thesis
+
     # Difference in s21 between the dip and top of resonance curved,
     # normalized such that top of resonance curve is at 0 dB in units of
     # magnitude, i.e. NOT dB
@@ -640,6 +659,25 @@ function s21FitFunc(freq, p)
     return (s21AdjMin(p) + k(freq, p)).*exp(1im*p[6])./(1 + k(freq, p))*totaloffset(p)
 end
 
+"""
+    getQFromFitParams(f0, p)
+
+This function defines the resonance behavior in a parameterized functional form.
+The theory for this model can be found in section 2.3.3 and 2.4 of Ben Mazin's thesis.\n
+__Arg(s)__:\n
+`f0` - resonance frequency\n
+`p` -  array of length 6 for fit parameters. The components for fitting are as follows:\n
++ Qi/1e6\n
++ dBOffsetFromZero\n
++ strayInductance(nH)\n
++ dipDepth (magnitude)\n
++ f0\n
++ phaseOnResonance\n
+__Output(s)__:\n
+`Qc` - coupling Q\n
+`Q0` - loaded Q\n
+`Qi` - intrinsic Q, equal to `p[1]`
+"""
 function getQFromFitParams(f0, p)
     s21AdjMin(p) = p[4]
     # Offset between top of resonance curve and 0 dB
@@ -649,15 +687,23 @@ function getQFromFitParams(f0, p)
     # Define a scale factor based on this impedance scaling change
     scalefactor(freq, p) = 50./Z(f0, p)
     # Calcuate the coupling capacitance scaled by the new impedance
-    Qc(f0, p) = scalefactor(freq, p)*s21AdjMin(p)*p[1]*1e6/(1 - s21AdjMin(p))
+    Qc = scalefactor(freq, p)*s21AdjMin(p)*p[1]*1e6/(1 - s21AdjMin(p))
     # Calculate the loaded Q
-    Q0(f0, p) = (p[1]*1e6.*Qc(f0, p))./(p[1]*1e6+Qc(f0, p))
+    Q0 = (p[1]*1e6.*Qc(f0, p))./(p[1]*1e6+Qc(f0, p))
+    Qi = p[1]
+    return Qc, Q0, Qi
 end
 
-function quickLinearInterp(x, interpFactor)
-    return Array(linspace(minimum(x), maximum(x), interpFactor*(length(x) - 1) + 1))
-end
-# Give an arbitrary score to the fit
+"""
+    fitGrade(fitScore, pts)
+
+Give an arbitrary grade based on the fit score.\n
+__Arg(s)__:\n
+`fitScore` - square residual val from minimization function \n
+`pts` -  length of fitting function, used so that the grade is normalized to the length of the fit\n
+__Output(s)__:\n
+`grade` - welcome back to school\n
+"""
 function fitGrade(fitScore, pts)
     if fitScore/pts < 0.0025
         "A"
@@ -674,48 +720,62 @@ function fitGrade(fitScore, pts)
     end
 end
 
-# Polynomial smoothing with the Savitsky Golay filters
-# Orginal author BBN (https://github.com/BBN-Q/Qlab.jl)
-# Modified by Michael Fang to update depreciated functions
-# Sources
-# ---------
-# Theory: http://www.ece.rutgers.edu/~orfanidi/intro2sp/orfanidis-i2sp.pdf
-# Python Example: http://wiki.scipy.org/Cookbook/SavitzkyGolay
+"""
+    savitsky_golay(x::Array{Float64, 1}, windowSize::Int64, polyOrder::Int64; deriv::Int64=0)
 
+Polynomial smoothing with the Savitsky Golay filters. The Savitzky-Golay is a
+type of low-pass filter, particularly suited for smoothing noisy data.
+The main idea behind this approach is to make for each point a least-square
+fit with a polynomial of high order over a odd-sized window centered at
+the point.\n
+Orginal author BBN (https://github.com/BBN-Q/Qlab.jl). \n
+Theory: http://www.ece.rutgers.edu/~orfanidi/intro2sp/orfanidis-i2sp.pdf\n
+Python Example: http://wiki.scipy.org/Cookbook/SavitzkyGolay\n
+__Arg(s)__:\n
+`x` - the values of the time history of the signal\n
+`windowSize` -  size of smoothing window. Must be an odd integer number.\n
+`polyOrder` - the order of the polynomial used in the filtering. Must be less then `window_size` - 1.\n
+`deriv`- the order of the derivative to compute (default = 0 means only smoothing)\n
+__Output(s)__:\n
+`ys` - Array of the smoothed signal (or it's n-th derivative)\n
+"""
 function savitsky_golay(x::Array{Float64, 1}, windowSize::Int64, polyOrder::Int64; deriv::Int64=0)
-
 #Some error checking
 @assert isodd(windowSize) "Window size must be an odd integer."
 @assert polyOrder < windowSize "Polynomial order must me less than window size."
-
 halfWindow = round(Int,(windowSize-1)/2)
-
 #Setup the S matrix of basis vectors.
 S = zeros(windowSize, polyOrder+1)
 for ct = 0:polyOrder
 	S[:,ct+1] = collect(-halfWindow:halfWindow).^(ct)
 end
-
 #Compute the filter coefficients for all orders
 #From the scipy code it seems pinv(S) and taking rows should be enough
 G = S*pinv(S'*S)
-
 #Slice out the derivative order we want
 filterCoeffs = G[:,deriv+1] * factorial(deriv);
-
 #Pad the signal with the endpoints and convolve with filter
 paddedX = [x[1]*ones(halfWindow); x; x[end]*ones(halfWindow)]
 y = conv(filterCoeffs[end:-1:1], paddedX)
-
 #Return the valid midsection
 return y[2*halfWindow+1:end-2*halfWindow]
-
 end
 
-# complex version
+"""
+    savitsky_golay(x::Array{Complex{Float64},1}, windowSize::Int64, polyOrder::Int64)
+
+Savitsky Golay filters for complex arrays.
+__Arg(s)__:\n
+`x` - the complex values of the time history of the signal\n
+`windowSize` -  size of smoothing window. Must be an odd integer number.\n
+`polyOrder` - the order of the polynomial used in the filtering. Must be less then `window_size` - 1.\n
+__Output(s)__:\n
+`ys` - complex array of the smoothed signal \n
+"""
 function savitsky_golay(x::Array{Complex{Float64},1}, windowSize::Int64, polyOrder::Int64)
     return savitsky_golay(real(x), windowSize, polyOrder) + 1im*savitsky_golay(imag(x), windowSize, polyOrder)
 end
+
 
 # Assign a varaible whos name is given by a string s to a value v
 # function stringAsVarName(s::String,v::Any)
