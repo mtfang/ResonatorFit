@@ -62,7 +62,7 @@ __Arg(s)__:
 
   * dipDepth (magnitude)
 
-  * f0
+  * f0(GHz)
 
   * phaseOnResonance
 
@@ -114,11 +114,11 @@ __Arg(s)__:
 
   * dipDepth (magnitude)
 
-  * f0
+  * f0(GHz)
 
   * phaseOnResonance
 
-__Output(s)__:
+`Qi`, `strayInductance`, and `f0` were choosen to be represented in Millions, nanoHenries, and GHz respectively to due to their scales (1e6, 1e-9, 1e9) relative to the other parameters. __Output(s)__:
 
 `s21val` - the complex value of s21 evaluated at `freq` given fit parameters
 
@@ -148,7 +148,7 @@ __Arg(s)__:
 
   * dipDepth (magnitude)
 
-  * f0
+  * f0(GHz)
 
   * phaseOnResonance
 
@@ -158,7 +158,7 @@ __Output(s)__:
 
 `Q0` - loaded Q
 
-`Qi` - intrinsic Q, equal to `p[1]`
+`Qi` - intrinsic Q/1e6, equal to `p[1]`
 
 <a id='ResonatorFit.fitGrade' href='#ResonatorFit.fitGrade'>#</a>
 **`ResonatorFit.fitGrade`** &mdash; *Function*.

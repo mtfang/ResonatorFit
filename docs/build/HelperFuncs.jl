@@ -2,8 +2,7 @@ using DataArrays, DataFrames, JLD, Colors
 
 import Base: complex
 
-export  extractResonator,
-        searchdir,
+export  searchdir,
         s2p,
         feedOutArrayFromDataFrame,
         complexMapSNP,
@@ -16,13 +15,6 @@ export  extractResonator,
         mergeJLDFileResults,
         ceifk,
         savitsky_golay
-
-
-# Return results of single resonator from fit results
-function extractResonator(results, resonator)
-    return results[results[:resonator] .== resonator, :]
-end
-
 
 """
     searchdir(path,key)
