@@ -320,7 +320,7 @@ __Example__:\n
 s21fit, s21smoothed, fitResults, fitScore = s21Fit(freq, s21)
 ```
 """
-function s21Fit(freq, s21; pGuess = [0.5], doCircleFit = true, iter = 4000, funcTol = 1e-12, ) # smoothingFactor = 0
+function s21Fit(freq, s21; pGuess = [0.5], doCircleFit = true, iter = 4000, funcTol = 1e-12, weight = false) # smoothingFactor = 0
     # # Save a copy of orginal s21 before smoothing
     # s21org = s21
     # # make smoothingFactor an odd integer
@@ -352,8 +352,8 @@ function s21Fit(freq, s21; pGuess = [0.5], doCircleFit = true, iter = 4000, func
         push!(pGuess, 0)
     end
     # Separate into magnitude and phase
-    s21dB = ResonatorFit.complex2dB(s21)
-    s21Ph = ResonatorFit.complex2Phase(s21)
+    s21dB = complex2dB(s21)
+    s21Ph = complex2Phase(s21)
     # Get top value of flat area
     s1dBMax = s21dB[indmax(s21dB)]
     # Get resonance value
@@ -371,29 +371,50 @@ function s21Fit(freq, s21; pGuess = [0.5], doCircleFit = true, iter = 4000, func
     # # Residuals for the real and imaginary parts
     # residualRe(freq, p) = real(s21) - real(s21FitFunc(freq,p))
     # residualIm(freq, p) = imag(s21) - imag(s21FitFunc(freq,p))
-    # The residual of the dB magnitude for the spectrum
-    residualdB(freq, p) = complex2dB(s21) - complex2dB(s21FitFunc(freq,p))
-    # The residual of the dB phase for the spectrum
-    residualPh(freq, p) = complex2Phase(s21) - complex2Phase(s21FitFunc(freq,p))
+
+    # # The residual of the dB magnitude for the spectrum
+    # residualdB(freq, p) = complex2dB(s21) - complex2dB(s21FitFunc(freq,p))
+    # # The residual of the dB phase for the spectrum
+    # residualPh(freq, p) = complex2Phase(s21) - complex2Phase(s21FitFunc(freq,p))
+
+
+    # # The residual of the dB magnitude for the spectrum
+    # residualdB(freq, p) = complex2dB(s21) - complex2dB(s21FitFunc2(freq,p)
+    # # The residual of the dB phase for the spectrum
+    # residualPh(freq, p) = complex2Phase(s21) - complex2Phase(s21FitFunc2(freq,p))
+
     # # Errors created from smoothing the orginal data will count against fit
     # # Magnitude
     # residualSmoothdB = complex2dB(s21org) - complex2dB(s21)
     # # Phase
     # residualSmoothPh = complex2Phase(s21org) - complex2Phase(s21)
-    # The magnitude of the combined residuals
-    residualMag(freq, p) = sqrt(residualdB(freq, p).^2 + residualPh(freq, p).^2)
+    # # The magnitude of the combined residuals
+    # residualMag(freq, p) = sqrt((complex2dB(s21) - complex2dB(s21FitFunc2(freq,p))).^2 + (complex2Phase(s21) - complex2Phase(s21FitFunc2(freq,p))).^2)
     #+ residualSmoothdB.^2 + residualSmoothPh.^2)
 
     # # The magnitude of the combined residuals
     # residualMag(freq, p) = sqrt(residualRe(freq, p).^2 + residualIm(freq, p).^2)
+    if weight == true
+        weights = -(s21dB - s1dBMax)/(s1dBMax - s1dBMin) + 0.5
+        figure()
+        plot(weights)
+        title("fitting weight")
+        rsquared(p) = sum((sqrt(weights.*(s21dB - complex2dB(s21FitFunc2(freq,p))).^2 + (s21Ph - complex2Phase(s21FitFunc2(freq,p))).^2)).^2)
+    else
+        rsquared(p) = sum((sqrt((s21dB - complex2dB(s21FitFunc2(freq,p))).^2 + (s21Ph - complex2Phase(s21FitFunc2(freq,p))).^2)).^2)
+
+    end
+    # figure()
+    # plot(weights)
     # Least squares
-    rsquared(p) = sum(residualMag(freq, p).^2)
+
     # Optimization
     fitResults = optimize(rsquared, pGuess, ftol = funcTol, iterations = iter)
     fitScore = rsquared(fitResults.minimum) # lower the better
     # minimumOutputKey = [Qi/1e6, dBOffsetFromZero, strayInductance(nH), dipDepthMag, f0, phaseOnResonance]
     return fitResults, fitScore, pGuess #s21FitFunc(freq, fitResults.minimum),  s21,
 end
+
 
 """
     s21FitFunc(freq, p)
@@ -436,6 +457,31 @@ function s21FitFunc(freq, p)
     k(freq, p) = 2im*Q0(freq, p).*(freq - p[5])/p[5]
     # The fitting function in all it's glory
     return (s21AdjMin(p) + k(freq, p)).*exp(1im*p[6])./(1 + k(freq, p))*totaloffset(p)
+end
+
+
+function s21FitFunc2(freq, p)
+    # Define the fitting function in a parameterized functional form
+    # The theory for this model can be found in section 2.3.3 and 2.4 of Ben Mazin's thesis
+
+    # Difference in s21 between the dip and top of resonance curved,
+    # normalized such that top of resonance curve is at 0 dB in units of
+    # magnitude, i.e. NOT dB
+    s21AdjMin = p[4]
+    # Offset between top of resonance curve and 0 dB
+    totaloffset = dB2mag(p[2])
+    # Add some parasitic series indutance to the transmission line
+    Z = 50 + 2im*pi*freq*p[3]/1E9
+    # Define a scale factor based on this impedance scaling change
+    scalefactor = 50./Z
+    # Calcuate the coupling capacitance scaled by the new impedance
+    Qc = scalefactor*s21AdjMin*p[1]*1e6/(1 - s21AdjMin)
+    # Calculate the loaded Q
+    Q0 = (p[1]*(1e6)*Qc)./(p[1]*1e6+Qc)
+    # Some variable I arbitrarily defined
+    k = 2im*Q0.*(freq - p[5])/p[5]
+    # The fitting function in all it's glory
+    return (s21AdjMin + k).*exp(1im*p[6])./(1 + k).*totaloffset
 end
 
 """
@@ -559,7 +605,7 @@ function resonatorEnergy(widthCPW, gapCPW, f0, powerAtFeedline, Qi, Qc; dielSubs
     k1 = widthCPW/(widthCPW+2*gapCPW)
     k2 = sqrt(1 - k1^2)
     vacPerm = 8.854187e-12
-    capacitancePerUnitLength = 4*vacPerm*ceifk(k1, 24)/ceifk(k2, 24) #Rami Thesis Eq 3.3
+    capacitancePerUnitLength = 4*vacPerm*dielConstApprox*ceifk(k1, 24)/ceifk(k2, 24) #Rami Thesis Eq 3.3
     length = (3e8/sqrt(dielConstApprox)/f0/4)
     powerReadout = 10.^(powerAtFeedline/10)
     powerInternal = (2/pi)*(Ql.^2 / Qc)*powerReadout # Rami's Thesis eq 3.30
